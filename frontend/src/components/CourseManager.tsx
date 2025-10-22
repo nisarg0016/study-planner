@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
 interface Course {
@@ -54,6 +55,7 @@ interface ProgressData {
 
 export const CourseManager: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [courses, setCourses] = useState<Course[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [progressData, setProgressData] = useState<ProgressData | null>(null);
@@ -172,11 +174,90 @@ export const CourseManager: React.FC = () => {
   }
 
   if (user?.role !== 'academic_advisor' && user?.role !== 'admin') {
+    // For regular users, show enrolled courses
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h2>
-          <p className="text-gray-600">Only academic advisors can access course management.</p>
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-900">My Courses</h1>
+          </div>
+
+          {error && (
+            <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+              {error}
+            </div>
+          )}
+
+          {/* Course Statistics for Students */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h3 className="text-lg font-medium text-gray-900">Enrolled Courses</h3>
+              <p className="text-3xl font-bold text-blue-600">{courses.length}</p>
+            </div>
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h3 className="text-lg font-medium text-gray-900">Active Courses</h3>
+              <p className="text-3xl font-bold text-green-600">
+                {courses.filter(course => course.is_active).length}
+              </p>
+            </div>
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h3 className="text-lg font-medium text-gray-900">Total Credits</h3>
+              <p className="text-3xl font-bold text-purple-600">
+                {courses.reduce((sum, course) => sum + (course.credits || 0), 0)}
+              </p>
+            </div>
+          </div>
+
+          {/* Courses List for Students */}
+          <div className="bg-white shadow overflow-hidden sm:rounded-md">
+            <ul className="divide-y divide-gray-200">
+              {courses.length === 0 ? (
+                <li className="px-6 py-8 text-center text-gray-500">
+                  You are not enrolled in any courses yet.
+                </li>
+              ) : (
+                courses.map((course) => (
+                  <li key={course.id} className="px-6 py-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-lg font-medium text-gray-900">
+                            {course.title} ({course.course_code})
+                          </h3>
+                          <div className="flex space-x-2">
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              course.is_active 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {course.is_active ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <p className="text-sm text-gray-500 mt-1">{course.description}</p>
+                        
+                        <div className="mt-2 flex items-center space-x-4 text-sm text-gray-500">
+                          <span>Credits: {course.credits}</span>
+                          <span>{course.semester} {course.year}</span>
+                          <span>Instructor: {course.instructor_name}</span>
+                        </div>
+                      </div>
+
+                      <div className="ml-4 flex space-x-2">
+                        <button
+                          onClick={() => navigate(`/course/${course.id}`)}
+                          className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                        >
+                          View Course
+                        </button>
+                      </div>
+                    </div>
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
         </div>
       </div>
     );
@@ -416,6 +497,12 @@ export const CourseManager: React.FC = () => {
                         </div>
 
                         <div className="ml-4 flex space-x-2">
+                          <button
+                            onClick={() => navigate(`/course/${course.id}`)}
+                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                          >
+                            View Details
+                          </button>
                           <button
                             onClick={() => deleteCourse(course.id)}
                             className="text-red-600 hover:text-red-800 text-sm font-medium"

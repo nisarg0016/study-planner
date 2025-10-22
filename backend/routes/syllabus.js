@@ -1,6 +1,6 @@
 const express = require('express');
 const { body, validationResult, query } = require('express-validator');
-const pool = require('../config/database');
+const db = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
@@ -24,17 +24,17 @@ router.get('/', [
     const { subject, completed, page = 1, limit = 20 } = req.query;
     const offset = (page - 1) * limit;
 
-    let whereConditions = ['user_id = $1'];
+    let whereConditions = ['user_id = ?'];
     let values = [req.user.id];
     let paramIndex = 2;
 
     if (subject) {
-      whereConditions.push(`subject ILIKE $${paramIndex++}`);
+      whereConditions.push(`subject LIKE ?`);
       values.push(`%${subject}%`);
     }
     if (completed !== undefined) {
-      whereConditions.push(`completed = $${paramIndex++}`);
-      values.push(completed === 'true');
+      whereConditions.push(`completed = ?`);
+      values.push(completed === 'true' ? 1 : 0);
     }
 
     const query = `
@@ -44,12 +44,13 @@ router.get('/', [
       FROM syllabus 
       WHERE ${whereConditions.join(' AND ')}
       ORDER BY subject ASC, chapter_number ASC, created_at DESC
-      LIMIT $${paramIndex++} OFFSET $${paramIndex}
+      LIMIT ? OFFSET ?
     `;
 
     values.push(limit, offset);
 
-    const result = await pool.query(query, values);
+    const result = await db.query(query, values);
+    console.log('Syllabus query result:', result);
 
     // Get total count for pagination
     const countQuery = `
@@ -57,17 +58,30 @@ router.get('/', [
       FROM syllabus 
       WHERE ${whereConditions.join(' AND ')}
     `;
-    const countResult = await pool.query(countQuery, values.slice(0, -2));
+    const countResult = await db.query(countQuery, values.slice(0, -2));
+    console.log('Count query result:', countResult);
+    
+    // Handle different possible result structures
+    let total = 0;
+    if (countResult && countResult.rows && countResult.rows.length > 0) {
+      total = countResult.rows[0].total || countResult.rows[0]['COUNT(*)'] || 0;
+    } else if (countResult && countResult.length > 0) {
+      total = countResult[0].total || countResult[0]['COUNT(*)'] || 0;
+    }
+
+    // Extract the actual rows from the result
+    const syllabusData = result && result.rows ? result.rows : (Array.isArray(result) ? result : []);
 
     res.json({
-      syllabus: result.rows,
+      syllabus: syllabusData,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
-        total: parseInt(countResult.rows[0].total),
-        totalPages: Math.ceil(countResult.rows[0].total / limit)
+        total: parseInt(total),
+        totalPages: Math.ceil(total / limit)
       }
     });
+    console.log('Sending response:', { syllabus: syllabusData, total });
   } catch (error) {
     console.error('Get syllabus error:', error);
     res.status(500).json({ message: 'Internal server error' });
@@ -77,20 +91,20 @@ router.get('/', [
 // Get syllabus grouped by subject
 router.get('/by-subject', async (req, res) => {
   try {
-    const result = await pool.query(
+    const result = await db.query(
       `SELECT subject, 
               COUNT(*) as total_topics,
-              COUNT(*) FILTER (WHERE completed = true) as completed_topics,
+              SUM(CASE WHEN completed = 1 THEN 1 ELSE 0 END) as completed_topics,
               AVG(completion_percentage) as avg_completion,
               SUM(estimated_study_hours) as total_estimated_hours
        FROM syllabus 
-       WHERE user_id = $1
+       WHERE user_id = ?
        GROUP BY subject
        ORDER BY subject ASC`,
       [req.user.id]
     );
 
-    res.json({ subjects: result.rows });
+    res.json({ subjects: result });
   } catch (error) {
     console.error('Get syllabus by subject error:', error);
     res.status(500).json({ message: 'Internal server error' });
@@ -102,16 +116,16 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await pool.query(
-      `SELECT * FROM syllabus WHERE id = $1 AND user_id = $2`,
+    const result = await db.query(
+      `SELECT * FROM syllabus WHERE id = ? AND user_id = ?`,
       [id, req.user.id]
     );
 
-    if (result.rows.length === 0) {
+    if (result.length === 0) {
       return res.status(404).json({ message: 'Syllabus item not found' });
     }
 
-    res.json({ syllabus: result.rows[0] });
+    res.json({ syllabus: result[0] });
   } catch (error) {
     console.error('Get syllabus item error:', error);
     res.status(500).json({ message: 'Internal server error' });
@@ -146,19 +160,24 @@ router.post('/', [
       difficultyLevel 
     } = req.body;
 
-    const result = await pool.query(
+    const result = await db.query(
       `INSERT INTO syllabus 
        (user_id, subject, topic, description, chapter_number, estimated_study_hours, 
         start_date, target_completion_date, difficulty_level)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       RETURNING *`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [req.user.id, subject, topic, description, chapterNumber, estimatedStudyHours, 
        startDate, targetCompletionDate, difficultyLevel]
     );
 
+    // Get the created record
+    const createdRecord = await db.query(
+      'SELECT * FROM syllabus WHERE id = ?',
+      [result.lastID]
+    );
+
     res.status(201).json({
       message: 'Syllabus item created successfully',
-      syllabus: result.rows[0]
+      syllabus: createdRecord[0]
     });
   } catch (error) {
     console.error('Create syllabus error:', error);
@@ -188,8 +207,8 @@ router.put('/:id', [
 
     const { id } = req.params;
     const updateFields = [];
-    const values = [req.user.id, id];
-    let paramIndex = 3;
+    const values = [];
+    let paramIndex = 1;
 
     const allowedFields = [
       'subject', 'topic', 'description', 'chapterNumber', 'estimatedStudyHours',
@@ -210,38 +229,55 @@ router.put('/:id', [
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) {
         const dbField = fieldMappings[field] || field;
-        updateFields.push(`${dbField} = $${paramIndex++}`);
+        updateFields.push(`${dbField} = ?`);
         values.push(req.body[field]);
       }
     }
 
     // Auto-set completion date when marked as completed
     if (req.body.completed === true) {
-      updateFields.push(`actual_completion_date = CURRENT_DATE`);
+      updateFields.push(`actual_completion_date = datetime('now')`);
       updateFields.push(`completion_percentage = 100`);
     } else if (req.body.completed === false) {
       updateFields.push(`actual_completion_date = NULL`);
+      updateFields.push(`completion_percentage = 0`);
     }
 
     if (updateFields.length === 0) {
       return res.status(400).json({ message: 'No fields to update' });
     }
 
-    const result = await pool.query(
+    values.push(req.user.id, id);
+
+    const result = await db.query(
       `UPDATE syllabus 
-       SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP
-       WHERE user_id = $1 AND id = $2 
-       RETURNING *`,
+       SET ${updateFields.join(', ')}, updated_at = datetime('now')
+       WHERE user_id = ? AND id = ?`,
       values
     );
 
-    if (result.rows.length === 0) {
+    if (result.changes === 0) {
       return res.status(404).json({ message: 'Syllabus item not found' });
+    }
+
+    // Get the updated record
+    const updatedRecord = await db.query(
+      'SELECT * FROM syllabus WHERE id = ? AND user_id = ?',
+      [id, req.user.id]
+    );
+
+    // Handle SQLite result structure
+    const syllabusData = updatedRecord && updatedRecord.rows && updatedRecord.rows.length > 0 
+      ? updatedRecord.rows[0] 
+      : (Array.isArray(updatedRecord) && updatedRecord.length > 0 ? updatedRecord[0] : null);
+
+    if (!syllabusData) {
+      return res.status(404).json({ message: 'Updated syllabus item not found' });
     }
 
     res.json({
       message: 'Syllabus item updated successfully',
-      syllabus: result.rows[0]
+      syllabus: syllabusData
     });
   } catch (error) {
     console.error('Update syllabus error:', error);
@@ -254,12 +290,12 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await pool.query(
-      'DELETE FROM syllabus WHERE id = $1 AND user_id = $2 RETURNING id',
+    const result = await db.query(
+      'DELETE FROM syllabus WHERE id = ? AND user_id = ?',
       [id, req.user.id]
     );
 
-    if (result.rows.length === 0) {
+    if (result.changes === 0) {
       return res.status(404).json({ message: 'Syllabus item not found' });
     }
 
@@ -273,20 +309,29 @@ router.delete('/:id', async (req, res) => {
 // Get syllabus statistics
 router.get('/stats/overview', async (req, res) => {
   try {
-    const result = await pool.query(
+    const result = await db.query(
       `SELECT 
          COUNT(*) as total_topics,
-         COUNT(*) FILTER (WHERE completed = true) as completed_topics,
+         SUM(CASE WHEN completed = 1 THEN 1 ELSE 0 END) as completed_topics,
          COUNT(DISTINCT subject) as total_subjects,
          AVG(completion_percentage) as avg_completion_percentage,
          SUM(estimated_study_hours) as total_estimated_hours,
-         COUNT(*) FILTER (WHERE target_completion_date < CURRENT_DATE AND completed = false) as overdue_topics
+         SUM(CASE WHEN target_completion_date < date('now') AND completed = 0 THEN 1 ELSE 0 END) as overdue_topics
        FROM syllabus 
-       WHERE user_id = $1`,
+       WHERE user_id = ?`,
       [req.user.id]
     );
 
-    res.json({ stats: result.rows[0] });
+    res.json({ 
+      stats: result && result.length > 0 ? result[0] : {
+        total_topics: 0,
+        completed_topics: 0,
+        total_subjects: 0,
+        avg_completion_percentage: 0,
+        total_estimated_hours: 0,
+        overdue_topics: 0
+      }
+    });
   } catch (error) {
     console.error('Get syllabus stats error:', error);
     res.status(500).json({ message: 'Internal server error' });

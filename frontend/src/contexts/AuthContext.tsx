@@ -32,11 +32,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const initializeAuth = async () => {
       try {
         const token = localStorage.getItem('authToken');
+        console.log('Auth token from localStorage:', token);
         if (token) {
           const userData = await authService.verifyToken();
+          console.log('Verified user data:', userData);
           setUser(userData);
+        } else {
+          console.log('No auth token found');
         }
       } catch (error) {
+        console.error('Auth verification failed:', error);
         localStorage.removeItem('authToken');
       } finally {
         setLoading(false);

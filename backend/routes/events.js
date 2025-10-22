@@ -1,6 +1,6 @@
 const express = require('express');
 const { body, validationResult, query } = require('express-validator');
-const pool = require('../config/database');
+const db = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
@@ -12,7 +12,7 @@ router.use(authenticateToken);
 router.get('/', [
   query('startDate').optional().isISO8601(),
   query('endDate').optional().isISO8601(),
-  query('eventType').optional().isIn(['study', 'exam', 'assignment', 'meeting', 'break', 'other']),
+  query('eventType').optional().isIn(['study_session', 'exam', 'assignment', 'meeting', 'break', 'other']),
   query('page').optional().isInt({ min: 1 }),
   query('limit').optional().isInt({ min: 1, max: 100 })
 ], async (req, res) => {
@@ -25,43 +25,42 @@ router.get('/', [
     const { startDate, endDate, eventType, page = 1, limit = 50 } = req.query;
     const offset = (page - 1) * limit;
 
-    let whereConditions = ['user_id = $1'];
+    let whereConditions = ['e.user_id = ?'];
     let values = [req.user.id];
-    let paramIndex = 2;
 
     if (startDate) {
-      whereConditions.push(`start_time >= $${paramIndex++}`);
+      whereConditions.push(`e.start_time >= ?`);
       values.push(startDate);
     }
     if (endDate) {
-      whereConditions.push(`start_time <= $${paramIndex++}`);
+      whereConditions.push(`e.start_time <= ?`);
       values.push(endDate);
     }
     if (eventType) {
-      whereConditions.push(`event_type = $${paramIndex++}`);
+      whereConditions.push(`e.event_type = ?`);
       values.push(eventType);
     }
 
     const query = `
       SELECT e.*, t.title as task_title, s.topic as syllabus_topic, s.subject as syllabus_subject
       FROM events e
-      LEFT JOIN tasks t ON e.task_id = t.id
-      LEFT JOIN syllabus s ON e.syllabus_id = s.id
+      LEFT JOIN tasks t ON e.task_id = t.id AND t.user_id = e.user_id
+      LEFT JOIN syllabus s ON e.syllabus_id = s.id AND s.user_id = e.user_id
       WHERE ${whereConditions.join(' AND ')}
-      ORDER BY start_time ASC
-      LIMIT $${paramIndex++} OFFSET $${paramIndex}
+      ORDER BY e.start_time ASC
+      LIMIT ? OFFSET ?
     `;
 
     values.push(limit, offset);
 
-    const result = await pool.query(query, values);
+    const result = await db.query(query, values);
 
     res.json({
-      events: result.rows,
+      events: result,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
-        total: result.rows.length
+        total: result.length
       }
     });
   } catch (error) {
@@ -75,20 +74,20 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await pool.query(
+    const result = await db.query(
       `SELECT e.*, t.title as task_title, s.topic as syllabus_topic, s.subject as syllabus_subject
        FROM events e
-       LEFT JOIN tasks t ON e.task_id = t.id
-       LEFT JOIN syllabus s ON e.syllabus_id = s.id
-       WHERE e.id = $1 AND e.user_id = $2`,
+       LEFT JOIN tasks t ON e.task_id = t.id AND t.user_id = e.user_id
+       LEFT JOIN syllabus s ON e.syllabus_id = s.id AND s.user_id = e.user_id
+       WHERE e.id = ? AND e.user_id = ?`,
       [id, req.user.id]
     );
 
-    if (result.rows.length === 0) {
+    if (result.length === 0) {
       return res.status(404).json({ message: 'Event not found' });
     }
 
-    res.json({ event: result.rows[0] });
+    res.json({ event: result[0] });
   } catch (error) {
     console.error('Get event error:', error);
     res.status(500).json({ message: 'Internal server error' });
@@ -99,15 +98,15 @@ router.get('/:id', async (req, res) => {
 router.post('/', [
   body('title').trim().isLength({ min: 1, max: 255 }),
   body('description').optional().isString(),
-  body('eventType').optional().isIn(['study', 'exam', 'assignment', 'meeting', 'break', 'other']),
-  body('startTime').isISO8601(),
-  body('endTime').isISO8601(),
+  body('event_type').optional().isIn(['study_session', 'exam', 'assignment', 'meeting', 'break', 'other']),
+  body('start_date').isISO8601(),
+  body('end_date').optional().isISO8601(),
   body('location').optional().isLength({ max: 255 }),
-  body('isAllDay').optional().isBoolean(),
-  body('recurrencePattern').optional().isString(),
-  body('recurrenceEndDate').optional().isISO8601(),
-  body('taskId').optional().isInt(),
-  body('syllabusId').optional().isInt()
+  body('priority').optional().isIn(['low', 'medium', 'high', 'urgent']),
+  body('is_recurring').optional().isBoolean(),
+  body('recurrence_pattern').optional().isString(),
+  body('attendees').optional().isString(),
+  body('reminders').optional().isInt()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -118,56 +117,40 @@ router.post('/', [
     const { 
       title, 
       description, 
-      eventType = 'study', 
-      startTime, 
-      endTime, 
+      event_type = 'study_session', 
+      start_date, 
+      end_date, 
       location, 
-      isAllDay = false,
-      recurrencePattern,
-      recurrenceEndDate,
-      taskId,
-      syllabusId
+      priority = 'medium',
+      is_recurring = false,
+      recurrence_pattern,
+      attendees,
+      reminders
     } = req.body;
 
-    // Validate time range
-    if (new Date(endTime) <= new Date(startTime)) {
+    // Validate time range if end_date is provided
+    if (end_date && new Date(end_date) <= new Date(start_date)) {
       return res.status(400).json({ message: 'End time must be after start time' });
     }
 
-    // Validate task/syllabus ownership if provided
-    if (taskId) {
-      const taskCheck = await pool.query(
-        'SELECT id FROM tasks WHERE id = $1 AND user_id = $2',
-        [taskId, req.user.id]
-      );
-      if (taskCheck.rows.length === 0) {
-        return res.status(400).json({ message: 'Invalid task ID' });
-      }
-    }
-
-    if (syllabusId) {
-      const syllabusCheck = await pool.query(
-        'SELECT id FROM syllabus WHERE id = $1 AND user_id = $2',
-        [syllabusId, req.user.id]
-      );
-      if (syllabusCheck.rows.length === 0) {
-        return res.status(400).json({ message: 'Invalid syllabus ID' });
-      }
-    }
-
-    const result = await pool.query(
+    const result = await db.query(
       `INSERT INTO events 
        (user_id, title, description, event_type, start_time, end_time, location, 
-        is_all_day, recurrence_pattern, recurrence_end_date, task_id, syllabus_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-       RETURNING *`,
-      [req.user.id, title, description, eventType, startTime, endTime, location,
-       isAllDay, recurrencePattern, recurrenceEndDate, taskId, syllabusId]
+        priority, is_recurring, recurrence_pattern, attendees, reminders, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled')`,
+      [req.user.id, title, description, event_type, start_date, end_date, location,
+       priority, is_recurring ? 1 : 0, recurrence_pattern, attendees, reminders]
+    );
+
+    // Get the created record
+    const createdRecord = await db.query(
+      'SELECT * FROM events WHERE id = ?',
+      [result.lastID]
     );
 
     res.status(201).json({
       message: 'Event created successfully',
-      event: result.rows[0]
+      event: createdRecord[0]
     });
   } catch (error) {
     console.error('Create event error:', error);
@@ -179,15 +162,16 @@ router.post('/', [
 router.put('/:id', [
   body('title').optional().trim().isLength({ min: 1, max: 255 }),
   body('description').optional().isString(),
-  body('eventType').optional().isIn(['study', 'exam', 'assignment', 'meeting', 'break', 'other']),
-  body('startTime').optional().isISO8601(),
-  body('endTime').optional().isISO8601(),
+  body('event_type').optional().isIn(['study_session', 'exam', 'assignment', 'meeting', 'break', 'other']),
+  body('start_date').optional().isISO8601(),
+  body('end_date').optional().isISO8601(),
   body('location').optional().isLength({ max: 255 }),
-  body('isAllDay').optional().isBoolean(),
-  body('recurrencePattern').optional().isString(),
-  body('recurrenceEndDate').optional().isISO8601(),
-  body('taskId').optional().isInt(),
-  body('syllabusId').optional().isInt()
+  body('priority').optional().isIn(['low', 'medium', 'high', 'urgent']),
+  body('status').optional().isIn(['scheduled', 'in_progress', 'completed', 'cancelled']),
+  body('is_recurring').optional().isBoolean(),
+  body('recurrence_pattern').optional().isString(),
+  body('attendees').optional().isString(),
+  body('reminders').optional().isInt()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -197,28 +181,22 @@ router.put('/:id', [
 
     const { id } = req.params;
     const updateFields = [];
-    const values = [req.user.id, id];
-    let paramIndex = 3;
+    const values = [];
 
     const allowedFields = [
-      'title', 'description', 'eventType', 'startTime', 'endTime', 'location',
-      'isAllDay', 'recurrencePattern', 'recurrenceEndDate', 'taskId', 'syllabusId'
+      'title', 'description', 'event_type', 'start_date', 'end_date', 'location',
+      'priority', 'status', 'is_recurring', 'recurrence_pattern', 'attendees', 'reminders'
     ];
 
+    // Field mapping from frontend to database column names
     const fieldMappings = {
-      eventType: 'event_type',
-      startTime: 'start_time',
-      endTime: 'end_time',
-      isAllDay: 'is_all_day',
-      recurrencePattern: 'recurrence_pattern',
-      recurrenceEndDate: 'recurrence_end_date',
-      taskId: 'task_id',
-      syllabusId: 'syllabus_id'
+      'start_date': 'start_time',
+      'end_date': 'end_time'
     };
 
     // Validate time range if both times are provided
-    if (req.body.startTime && req.body.endTime) {
-      if (new Date(req.body.endTime) <= new Date(req.body.startTime)) {
+    if (req.body.start_date && req.body.end_date) {
+      if (new Date(req.body.end_date) <= new Date(req.body.start_date)) {
         return res.status(400).json({ message: 'End time must be after start time' });
       }
     }
@@ -226,8 +204,12 @@ router.put('/:id', [
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) {
         const dbField = fieldMappings[field] || field;
-        updateFields.push(`${dbField} = $${paramIndex++}`);
-        values.push(req.body[field]);
+        updateFields.push(`${dbField} = ?`);
+        if (field === 'is_recurring') {
+          values.push(req.body[field] ? 1 : 0);
+        } else {
+          values.push(req.body[field]);
+        }
       }
     }
 
@@ -235,21 +217,28 @@ router.put('/:id', [
       return res.status(400).json({ message: 'No fields to update' });
     }
 
-    const result = await pool.query(
+    values.push(req.user.id, id);
+
+    const result = await db.query(
       `UPDATE events 
-       SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP
-       WHERE user_id = $1 AND id = $2 
-       RETURNING *`,
+       SET ${updateFields.join(', ')}, updated_at = datetime('now')
+       WHERE user_id = ? AND id = ?`,
       values
     );
 
-    if (result.rows.length === 0) {
+    if (result.changes === 0) {
       return res.status(404).json({ message: 'Event not found' });
     }
 
+    // Get the updated record
+    const updatedRecord = await db.query(
+      'SELECT * FROM events WHERE id = ? AND user_id = ?',
+      [id, req.user.id]
+    );
+
     res.json({
       message: 'Event updated successfully',
-      event: result.rows[0]
+      event: updatedRecord[0]
     });
   } catch (error) {
     console.error('Update event error:', error);
@@ -262,12 +251,12 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await pool.query(
-      'DELETE FROM events WHERE id = $1 AND user_id = $2 RETURNING id',
+    const result = await db.query(
+      'DELETE FROM events WHERE id = ? AND user_id = ?',
       [id, req.user.id]
     );
 
-    if (result.rows.length === 0) {
+    if (result.changes === 0) {
       return res.status(404).json({ message: 'Event not found' });
     }
 
@@ -287,19 +276,19 @@ router.get('/calendar/:year/:month', async (req, res) => {
     const startDate = `${year}-${month.padStart(2, '0')}-01`;
     const endDate = `${year}-${month.padStart(2, '0')}-31`;
 
-    const result = await pool.query(
+    const result = await db.query(
       `SELECT e.*, t.title as task_title, s.topic as syllabus_topic, s.subject as syllabus_subject
        FROM events e
-       LEFT JOIN tasks t ON e.task_id = t.id
-       LEFT JOIN syllabus s ON e.syllabus_id = s.id
-       WHERE e.user_id = $1 
-       AND e.start_time >= $2 
-       AND e.start_time <= $3
+       LEFT JOIN tasks t ON e.task_id = t.id AND t.user_id = e.user_id
+       LEFT JOIN syllabus s ON e.syllabus_id = s.id AND s.user_id = e.user_id
+       WHERE e.user_id = ? 
+       AND e.start_time >= ? 
+       AND e.start_time <= ?
        ORDER BY e.start_time ASC`,
       [req.user.id, startDate, endDate]
     );
 
-    res.json({ events: result.rows });
+    res.json({ events: result });
   } catch (error) {
     console.error('Get calendar events error:', error);
     res.status(500).json({ message: 'Internal server error' });
