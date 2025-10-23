@@ -583,14 +583,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **Frontend Development**: React/TypeScript with modern UI components
 - **Database Design**: Comprehensive schema with optimization
 - **UI/UX Design**: User-centered design with accessibility focus
-
-## Support
-
-For support and questions:
-- Create an issue in the GitHub repository
-- Check the documentation for common solutions
-- Review the API documentation for integration help
-
 ---
 
 **Study Planner** - Empowering students with intelligent study organization and performance insights. Built with modern web technologies for scalability, security, and user experience.
