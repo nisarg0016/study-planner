@@ -101,6 +101,16 @@ export const Navigation: React.FC = () => {
               >
                 Courses
               </Link>
+              <Link
+                to="/pomodoro"
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  isActive('/pomodoro')
+                    ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200' 
+                    : 'text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                Pomodoro
+              </Link>
             </nav>
             
             {/* Mobile Navigation Button */}

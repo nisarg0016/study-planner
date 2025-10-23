@@ -13,6 +13,7 @@ const analyticsRoutes = require('./routes/analytics');
 const planningRoutes = require('./routes/planning');
 const courseRoutes = require('./routes/courses');
 const notificationRoutes = require('./routes/notifications');
+const studySessionRoutes = require('./routes/studySessions');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -72,6 +73,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/planning', planningRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/study-sessions', studySessionRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

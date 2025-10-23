@@ -29,10 +29,14 @@ A comprehensive study planning application that helps students manage their time
 - **Task Management**: Create, edit, delete, and track tasks with priorities, due dates, and difficulty levels
 - **Syllabus Management**: Organize study topics by subject with completion tracking and progress monitoring
 - **Calendar Integration**: Schedule study sessions and events with React Big Calendar
+- **Pomodoro Timer**: Built-in Pomodoro timer (25min work/5min break) that automatically creates events and tracks study sessions
 - **Performance Analytics**: Visual dashboard with charts showing study progress and productivity metrics
+- **Notifications**: Real-time notifications for tasks, events, and system updates
+- **Course Management**: Create courses, manage enrollments, and track student progress
 - **Web Tracking**: Monitor time spent on productive vs. distracting websites (simulated)
 - **Intelligent Planning**: AI-powered study plan generation and adaptive scheduling based on performance
 - **Academic Advisor Support**: Special role for educators to monitor student progress
+- **Dark Mode**: Beautiful dark theme enabled by default with easy toggle
 
 ### Technical Features
 - **Modern Tech Stack**: React frontend with Node.js/Express backend
