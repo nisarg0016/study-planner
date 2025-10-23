@@ -2,27 +2,27 @@
 
 A comprehensive study planning application that helps students manage their time efficiently, track productivity, and receive performance feedback through intelligent planning algorithms.
 
-## 🎯 Current Status
+##  Current Status
 
-✅ **Backend**: Fully implemented and functional
+ **Backend**: Fully implemented and functional
 - Complete REST API with 30+ endpoints
 - SQLite database with automated setup
 - JWT authentication system
 - All CRUD operations working
 
-✅ **Frontend**: Working demo application  
+ **Frontend**: Working demo application  
 - Simple React/TypeScript interface
 - Login and dashboard functionality
 - Builds successfully without errors
 - Production-ready deployment
 
-✅ **Errors Fixed**: All frontend compilation errors resolved
+ **Errors Fixed**: All frontend compilation errors resolved
 - TypeScript configuration added
 - Missing dependencies installed
 - Import errors resolved
 - Application successfully builds and runs
 
-## 🚀 Features
+##  Features
 
 ### Core Features
 - **User Management & Authentication**: JWT-based authentication with user registration, login, and role management (User, Academic Advisor)
@@ -43,7 +43,7 @@ A comprehensive study planning application that helps students manage their time
 
 ## 🛠 Tech Stack
 
-### Backend ✅ COMPLETED
+### Backend  COMPLETED
 - **Framework**: Node.js with Express.js
 - **Database**: SQLite (lightweight, serverless database)
 - **Authentication**: JWT (JSON Web Tokens)
@@ -51,14 +51,14 @@ A comprehensive study planning application that helps students manage their time
 - **Security**: Helmet, CORS, Rate Limiting
 - **Status**: Fully implemented with all API endpoints
 
-### Frontend ✅ WORKING DEMO
+### Frontend  WORKING DEMO
 - **Framework**: React 18 with TypeScript
 - **Styling**: Tailwind CSS
 - **Status**: Simplified working demo with login and dashboard
 - **Build**: Successfully compiles without errors
 - **Deployment**: Production-ready build available
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 study-planner/
@@ -99,7 +99,7 @@ study-planner/
 └── README.md                    # This file
 ```
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### Easy Setup (Recommended)
 ```bash
@@ -190,7 +190,7 @@ Follow the detailed installation steps below.
    ```
    The frontend will be available at `http://localhost:3000`
 
-## 📊 Database Schema
+##  Database Schema
 
 The application uses SQLite with the following main tables:
 
@@ -212,7 +212,7 @@ The application uses SQLite with the following main tables:
 - **JSON Support**: Flexible preferences and settings storage as TEXT
 - **Date/Time**: SQLite DATETIME and DATE types for temporal data
 
-## 🔐 API Documentation
+##  API Documentation
 
 ### Authentication Endpoints
 
@@ -387,7 +387,7 @@ Apply a generated study plan by creating calendar events.
 #### GET /api/planning/recommendations
 Get adaptive recommendations based on performance.
 
-## 🎨 Frontend Features
+##  Frontend Features
 
 ### Pages and Components
 
@@ -420,7 +420,7 @@ Get adaptive recommendations based on performance.
 - **Public Routes**: Login and registration pages
 - **Route Guards**: Automatic redirection based on authentication status
 
-## 🧠 Intelligent Planning Algorithm
+##  Intelligent Planning Algorithm
 
 ### Study Plan Generation
 The planning algorithm considers multiple factors:
@@ -445,7 +445,7 @@ The system provides personalized recommendations:
 - **Flexibility**: Allows manual adjustments to generated plans
 - **Continuous Learning**: Improves recommendations based on user feedback
 
-## 📈 Performance Analytics
+## Performance Analytics
 
 ### Dashboard Metrics
 - **Study Time Tracking**: Daily, weekly, and monthly study duration
@@ -467,7 +467,7 @@ The system provides personalized recommendations:
 - **Time Management**: Analyze time allocation effectiveness
 - **Habit Formation**: Monitor study consistency and patterns
 
-## 🔒 Security Features
+## Security Features
 
 ### Authentication & Authorization
 - **JWT Tokens**: Secure, stateless authentication
@@ -487,7 +487,7 @@ The system provides personalized recommendations:
 - **Secure Headers**: HTTP security headers implementation
 - **Environment Variables**: Sensitive configuration protection
 
-## 🚀 Deployment
+##  Deployment
 
 ### Production Setup
 
@@ -513,7 +513,7 @@ The system provides personalized recommendations:
 - Database indexing optimization
 - Monitor query performance
 
-## 🧪 Testing
+##  Testing
 
 ### Backend Testing
 - Unit tests for API endpoints
@@ -527,7 +527,7 @@ The system provides personalized recommendations:
 - End-to-end testing with Cypress (recommended)
 - Accessibility testing
 
-## 📱 Mobile Responsiveness
+## Mobile Responsiveness
 
 The application is fully responsive and works well on:
 - Desktop computers (1200px+)
@@ -540,7 +540,7 @@ Key responsive features:
 - Optimized calendar view for mobile
 - Responsive charts and dashboards
 
-## 🔮 Future Enhancements
+## Future Enhancements
 
 ### Planned Features
 - **Browser Extension**: Real-time web tracking
@@ -557,7 +557,7 @@ Key responsive features:
 - **Monitoring**: Application performance monitoring
 - **Testing**: Comprehensive test coverage
 
-## 🤝 Contributing
+## Contributing
 
 ### Development Setup
 1. Fork the repository
@@ -573,18 +573,18 @@ Key responsive features:
 - Document new features and APIs
 - Follow semantic versioning
 
-## 📄 License
+##  License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 👥 Team
+## Team
 
 - **Backend Development**: Node.js/Express API with PostgreSQL
 - **Frontend Development**: React/TypeScript with modern UI components
 - **Database Design**: Comprehensive schema with optimization
 - **UI/UX Design**: User-centered design with accessibility focus
 
-## 📞 Support
+## Support
 
 For support and questions:
 - Create an issue in the GitHub repository
