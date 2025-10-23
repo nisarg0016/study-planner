@@ -6,9 +6,9 @@ interface Event {
   id: number;
   title: string;
   description?: string;
-  event_type: 'exam' | 'assignment' | 'study' | 'class' | 'meeting' | 'deadline' | 'other';
-  start_date: string;
-  end_date?: string;
+  event_type: 'study_session' | 'exam' | 'assignment' | 'meeting' | 'break' | 'other';
+  start_time: string;
+  end_time?: string;
   is_recurring: boolean;
   recurrence_pattern?: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
@@ -46,14 +46,27 @@ export const EventScheduler: React.FC = () => {
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
+  // Helper function to get current time in HH:MM format
+  const getCurrentTime = () => {
+    const now = new Date();
+    return now.toTimeString().slice(0, 5); // Returns HH:MM
+  };
+
+  // Helper function to get time one hour from now
+  const getOneHourLater = () => {
+    const now = new Date();
+    now.setHours(now.getHours() + 1);
+    return now.toTimeString().slice(0, 5); // Returns HH:MM
+  };
+
   const [newEvent, setNewEvent] = useState<NewEventForm>({
     title: '',
     description: '',
     eventType: 'study_session',
     startDate: new Date().toISOString().split('T')[0],
-    startTime: '09:00',
+    startTime: getCurrentTime(),
     endDate: new Date().toISOString().split('T')[0],
-    endTime: '10:00',
+    endTime: getOneHourLater(),
     isRecurring: false,
     recurrencePattern: 'weekly',
     priority: 'medium',
@@ -70,9 +83,11 @@ export const EventScheduler: React.FC = () => {
     try {
       setLoading(true);
       const response = await api.get('/events');
-      setEvents(response.data.events || []);
+      const eventsData = response.data.events || response.data || [];
+      setEvents(Array.isArray(eventsData) ? eventsData : []);
     } catch (error: any) {
       setError(error.response?.data?.message || 'Failed to load events');
+      setEvents([]); // Ensure events is always an array
     } finally {
       setLoading(false);
     }
@@ -132,9 +147,9 @@ export const EventScheduler: React.FC = () => {
       description: '',
       eventType: 'study_session',
       startDate: new Date().toISOString().split('T')[0],
-      startTime: '09:00',
+      startTime: getCurrentTime(),
       endDate: new Date().toISOString().split('T')[0],
-      endTime: '10:00',
+      endTime: getOneHourLater(),
       isRecurring: false,
       recurrencePattern: 'weekly',
       priority: 'medium',
@@ -147,20 +162,20 @@ export const EventScheduler: React.FC = () => {
   const getTodayEvents = () => {
     const today = new Date().toISOString().split('T')[0];
     return events.filter(event => 
-      event.start_date.split('T')[0] === today
+      event.start_time.split('T')[0] === today
     );
   };
 
   const getUpcomingEvents = () => {
     const today = new Date();
     return events.filter(event => 
-      new Date(event.start_date) >= today
-    ).sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime());
+      new Date(event.start_time) >= today
+    ).sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
   };
 
   const getEventsByDate = (date: string) => {
     return events.filter(event => 
-      event.start_date.split('T')[0] === date
+      event.start_time.split('T')[0] === date
     );
   };
 
@@ -434,9 +449,9 @@ export const EventScheduler: React.FC = () => {
                           <p className="text-sm text-gray-600 mt-1">{event.description}</p>
                         )}
                         <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
-                          <span>{new Date(event.start_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                          {event.end_date && (
-                            <span>- {new Date(event.end_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                          <span>{new Date(event.start_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                          {event.end_time && (
+                            <span>- {new Date(event.end_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                           )}
                           <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(event.priority)}`}>
                             {event.priority}
@@ -480,10 +495,10 @@ export const EventScheduler: React.FC = () => {
                           <p className="text-sm text-gray-600 mt-1">{event.description}</p>
                         )}
                         <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
-                          <span>{new Date(event.start_date).toLocaleDateString()}</span>
-                          <span>{new Date(event.start_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                          {event.end_date && (
-                            <span>- {new Date(event.end_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                          <span>{new Date(event.start_time).toLocaleDateString()}</span>
+                          <span>{new Date(event.start_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                          {event.end_time && (
+                            <span>- {new Date(event.end_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                           )}
                           <span className={`px-2 py-1 rounded-full text-xs ${getPriorityColor(event.priority)}`}>
                             {event.priority}
@@ -533,8 +548,8 @@ export const EventScheduler: React.FC = () => {
                     <div key={event.id} className="p-3 border rounded-md border-l-4" style={{borderLeftColor: getTypeColor(event.event_type).replace('bg-', '#')}}>
                       <h4 className="font-medium">{event.title}</h4>
                       <div className="text-sm text-gray-600 mt-1">
-                        {new Date(event.start_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                        {event.end_date && ` - ${new Date(event.end_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`}
+                        {new Date(event.start_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        {event.end_time && ` - ${new Date(event.end_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`}
                         <span className={`ml-2 px-2 py-1 rounded-full text-xs ${getPriorityColor(event.priority)}`}>
                           {event.priority}
                         </span>

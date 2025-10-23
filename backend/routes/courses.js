@@ -316,6 +316,70 @@ router.post('/:id/enroll', requireRole(['academic_advisor', 'admin']), [
   }
 });
 
+// Get available courses for enrollment (not yet enrolled)
+router.get('/available/for-enrollment', async (req, res) => {
+  try {
+    const courses = await db.query(
+      `SELECT c.*, 
+              u.first_name || ' ' || u.last_name as instructor_name,
+              COUNT(DISTINCT ce.id) as enrolled_students
+       FROM courses c
+       LEFT JOIN users u ON c.instructor_id = u.id
+       LEFT JOIN course_enrollments ce ON c.id = ce.course_id
+       WHERE c.is_active = 1
+         AND c.id NOT IN (
+           SELECT course_id FROM course_enrollments WHERE user_id = ?
+         )
+       GROUP BY c.id
+       ORDER BY c.year DESC, c.semester, c.title`,
+      [req.user.id]
+    );
+
+    res.json({ courses: courses.rows });
+  } catch (error) {
+    console.error('Get available courses error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Self-enroll in course (for students)
+router.post('/:id/self-enroll', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if course exists and is active
+    const course = await db.query(
+      'SELECT * FROM courses WHERE id = ? AND is_active = 1',
+      [id]
+    );
+
+    if (course.rows.length === 0) {
+      return res.status(404).json({ message: 'Course not found or not active' });
+    }
+
+    // Check if already enrolled
+    const existing = await db.query(
+      'SELECT id FROM course_enrollments WHERE course_id = ? AND user_id = ?',
+      [id, req.user.id]
+    );
+
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ message: 'You are already enrolled in this course' });
+    }
+
+    // Enroll the user
+    await db.run(
+      'INSERT INTO course_enrollments (course_id, user_id) VALUES (?, ?)',
+      [id, req.user.id]
+    );
+
+    res.json({ message: 'Successfully enrolled in course' });
+  } catch (error) {
+    console.error('Self-enroll error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 // Get course enrollments (admin/advisor only)
 router.get('/:id/enrollments', requireRole(['academic_advisor', 'admin']), async (req, res) => {
   try {

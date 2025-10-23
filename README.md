@@ -190,6 +190,25 @@ Follow the detailed installation steps below.
    ```
    The frontend will be available at `http://localhost:3000`
 
+## 🔄 Database Migration
+
+### For Existing Installations
+
+If you're upgrading from an older version of the application, you may need to run the migration script to add new database columns:
+
+```bash
+cd backend
+node scripts/migrateDatabase.js
+```
+
+This will add:
+- `attendees` and `reminders` columns to the `events` table
+- `updated_at` column to the `study_sessions` table
+
+### For New Installations
+
+New installations using `./setup.sh` or `npm run setup-db` will automatically have all the latest schema changes applied. No migration needed!
+
 ##  Database Schema
 
 The application uses SQLite with the following main tables:
@@ -211,6 +230,26 @@ The application uses SQLite with the following main tables:
 - **Indexes**: Optimized queries for better performance
 - **JSON Support**: Flexible preferences and settings storage as TEXT
 - **Date/Time**: SQLite DATETIME and DATE types for temporal data
+
+### Database Scripts
+
+The following npm scripts are available for database management:
+
+```bash
+# Initial database setup (for new installations)
+npm run setup-db
+
+# Migrate existing database (adds new columns to existing tables)
+npm run migrate-db
+
+# Reset database (deletes and recreates from scratch - requires confirmation)
+npm run reset-db
+```
+
+**When to use each script:**
+- `setup-db`: First time installation or when setting up on a new server
+- `migrate-db`: When upgrading from an older version (preserves existing data)
+- `reset-db`: When you want to start completely fresh (DELETES ALL DATA)
 
 ##  API Documentation
 

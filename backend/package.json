@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "setup-db": "node scripts/setupDatabase.js"
+    "setup-db": "node scripts/setupDatabase.js",
+    "migrate-db": "node scripts/migrateDatabase.js",
+    "reset-db": "node scripts/resetDatabase.js"
   },
   "keywords": ["study", "planner", "education", "productivity"],
   "author": "Study Planner Team",

@@ -97,16 +97,16 @@ router.get('/:id', async (req, res) => {
 // Create a new event
 router.post('/', [
   body('title').trim().isLength({ min: 1, max: 255 }),
-  body('description').optional().isString(),
+  body('description').optional({ nullable: true }).isString(),
   body('event_type').optional().isIn(['study_session', 'exam', 'assignment', 'meeting', 'break', 'other']),
   body('start_date').isISO8601(),
-  body('end_date').optional().isISO8601(),
-  body('location').optional().isLength({ max: 255 }),
+  body('end_date').optional({ nullable: true }).isISO8601(),
+  body('location').optional({ nullable: true }).isLength({ max: 255 }),
   body('priority').optional().isIn(['low', 'medium', 'high', 'urgent']),
-  body('is_recurring').optional().isBoolean(),
-  body('recurrence_pattern').optional().isString(),
-  body('attendees').optional().isString(),
-  body('reminders').optional().isInt()
+  body('is_recurring').optional({ nullable: true }).isBoolean(),
+  body('recurrence_pattern').optional({ nullable: true }).isString(),
+  body('attendees').optional({ nullable: true }).isString(),
+  body('reminders').optional({ nullable: true }).isInt()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -133,7 +133,7 @@ router.post('/', [
       return res.status(400).json({ message: 'End time must be after start time' });
     }
 
-    const result = await db.query(
+    const result = await db.run(
       `INSERT INTO events 
        (user_id, title, description, event_type, start_time, end_time, location, 
         priority, is_recurring, recurrence_pattern, attendees, reminders, status)
@@ -150,7 +150,7 @@ router.post('/', [
 
     res.status(201).json({
       message: 'Event created successfully',
-      event: createdRecord[0]
+      event: createdRecord.rows[0]
     });
   } catch (error) {
     console.error('Create event error:', error);
@@ -160,18 +160,18 @@ router.post('/', [
 
 // Update an event
 router.put('/:id', [
-  body('title').optional().trim().isLength({ min: 1, max: 255 }),
-  body('description').optional().isString(),
+  body('title').optional({ nullable: true }).trim().isLength({ min: 1, max: 255 }),
+  body('description').optional({ nullable: true }).isString(),
   body('event_type').optional().isIn(['study_session', 'exam', 'assignment', 'meeting', 'break', 'other']),
-  body('start_date').optional().isISO8601(),
-  body('end_date').optional().isISO8601(),
-  body('location').optional().isLength({ max: 255 }),
+  body('start_date').optional({ nullable: true }).isISO8601(),
+  body('end_date').optional({ nullable: true }).isISO8601(),
+  body('location').optional({ nullable: true }).isLength({ max: 255 }),
   body('priority').optional().isIn(['low', 'medium', 'high', 'urgent']),
   body('status').optional().isIn(['scheduled', 'in_progress', 'completed', 'cancelled']),
-  body('is_recurring').optional().isBoolean(),
-  body('recurrence_pattern').optional().isString(),
-  body('attendees').optional().isString(),
-  body('reminders').optional().isInt()
+  body('is_recurring').optional({ nullable: true }).isBoolean(),
+  body('recurrence_pattern').optional({ nullable: true }).isString(),
+  body('attendees').optional({ nullable: true }).isString(),
+  body('reminders').optional({ nullable: true }).isInt()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -219,7 +219,7 @@ router.put('/:id', [
 
     values.push(req.user.id, id);
 
-    const result = await db.query(
+    const result = await db.run(
       `UPDATE events 
        SET ${updateFields.join(', ')}, updated_at = datetime('now')
        WHERE user_id = ? AND id = ?`,
@@ -238,7 +238,7 @@ router.put('/:id', [
 
     res.json({
       message: 'Event updated successfully',
-      event: updatedRecord[0]
+      event: updatedRecord.rows[0]
     });
   } catch (error) {
     console.error('Update event error:', error);
@@ -251,7 +251,7 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await db.query(
+    const result = await db.run(
       'DELETE FROM events WHERE id = ? AND user_id = ?',
       [id, req.user.id]
     );

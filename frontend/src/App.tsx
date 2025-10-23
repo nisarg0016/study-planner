@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthPage } from './components/AuthPage';
 import { Navigation } from './components/Navigation';
 import { Dashboard } from './components/Dashboard';
@@ -11,6 +12,7 @@ import { CourseView } from './components/CourseView';
 import { Analytics } from './components/Analytics';
 import { SyllabusManager } from './components/SyllabusManager';
 import { EventScheduler } from './components/EventScheduler';
+import { Notifications } from './components/Notifications';
 
 // Protected Route component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -146,6 +148,15 @@ const AppContent: React.FC = () => {
           } 
         />
         
+        <Route 
+          path="/notifications" 
+          element={
+            <ProtectedRoute>
+              <Notifications />
+            </ProtectedRoute>
+          } 
+        />
+        
         {/* Course routes - accessible to all users but with different permissions */}
         <Route 
           path="/courses" 
@@ -175,11 +186,13 @@ const AppContent: React.FC = () => {
 // Main App component
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <AppContent />
-      </Router>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <Router>
+          <AppContent />
+        </Router>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 
