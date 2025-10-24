@@ -96,7 +96,107 @@ async function insertSampleData() {
         [userId, 'Mathematics', 'Calculus', 'Derivatives and Integrals', 12, 5]
       );
       
+      // Insert sample courses
+      const course1 = await db.run(
+        `INSERT INTO courses (title, description, course_code, credits, semester, year, start_date, end_date, is_active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          'Introduction to Computer Science',
+          'Learn the fundamentals of programming, data structures, and algorithms. Perfect for beginners.',
+          'CS101',
+          4,
+          'Fall',
+          2025,
+          '2025-09-01',
+          '2025-12-15',
+          true
+        ]
+      );
+
+      const course2 = await db.run(
+        `INSERT INTO courses (title, description, course_code, credits, semester, year, start_date, end_date, is_active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          'Calculus I',
+          'Differential and integral calculus with applications. Topics include limits, derivatives, integrals, and series.',
+          'MATH201',
+          4,
+          'Fall',
+          2025,
+          '2025-09-01',
+          '2025-12-15',
+          true
+        ]
+      );
+
+      const course3 = await db.run(
+        `INSERT INTO courses (title, description, course_code, credits, semester, year, start_date, end_date, is_active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          'World History',
+          'A comprehensive survey of world history from ancient civilizations to the modern era.',
+          'HIST150',
+          3,
+          'Fall',
+          2025,
+          '2025-09-01',
+          '2025-12-15',
+          true
+        ]
+      );
+
+      const course4 = await db.run(
+        `INSERT INTO courses (title, description, course_code, credits, semester, year, start_date, end_date, is_active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          'Data Structures & Algorithms',
+          'Advanced programming course covering arrays, linked lists, trees, graphs, sorting, and searching algorithms.',
+          'CS202',
+          4,
+          'Spring',
+          2026,
+          '2026-01-15',
+          '2026-05-15',
+          true
+        ]
+      );
+
+      const course5 = await db.run(
+        `INSERT INTO courses (title, description, course_code, credits, semester, year, start_date, end_date, is_active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          'English Composition',
+          'Develop critical writing and analytical skills through essays, research papers, and literary analysis.',
+          'ENG101',
+          3,
+          'Fall',
+          2025,
+          '2025-09-01',
+          '2025-12-15',
+          true
+        ]
+      );
+
+      // Enroll demo user in some courses
+      await db.run(
+        'INSERT INTO course_enrollments (course_id, user_id) VALUES (?, ?)',
+        [course1.lastID, userId]
+      );
+
+      await db.run(
+        'INSERT INTO course_enrollments (course_id, user_id) VALUES (?, ?)',
+        [course2.lastID, userId]
+      );
+
+      await db.run(
+        'INSERT INTO course_enrollments (course_id, user_id) VALUES (?, ?)',
+        [course3.lastID, userId]
+      );
+
       console.log('Sample data inserted successfully!');
+      console.log(`  - User: demo@studyplanner.com`);
+      console.log(`  - Courses created: 5`);
+      console.log(`  - Enrolled in: 3 courses`);
     } else {
       console.log('Sample user already exists, skipping sample data insertion');
     }
