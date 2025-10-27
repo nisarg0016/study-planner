@@ -14,6 +14,8 @@ const planningRoutes = require('./routes/planning');
 const courseRoutes = require('./routes/courses');
 const notificationRoutes = require('./routes/notifications');
 const studySessionRoutes = require('./routes/studySessions');
+const testsRoutes = require('./routes/tests');
+const topicCategoriesRoutes = require('./routes/topicCategories');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -74,6 +76,8 @@ app.use('/api/planning', planningRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/study-sessions', studySessionRoutes);
+app.use('/api/tests', testsRoutes);
+app.use('/api/topic-categories', topicCategoriesRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

@@ -82,6 +82,57 @@ async function insertSampleData() {
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [userId, 'Read Chapter 5', 'History textbook chapter on World War II', 'History', 'medium', 2, 2]
       );
+
+      // Insert system-wide topic categories with colors and hierarchy
+      const catStem = await db.run(
+        `INSERT INTO topic_categories (user_id, name, description, color, icon, priority, is_system)
+         VALUES (NULL, ?, ?, ?, ?, ?, ?)`,
+        ['CS', 'Science, Technology, Engineering, Math', '#10B981', '🔬', 5, 1]
+      );
+
+      const catHumanities = await db.run(
+        `INSERT INTO topic_categories (user_id, name, description, color, icon, priority, is_system)
+         VALUES (NULL, ?, ?, ?, ?, ?, ?)`,
+        ['Mathematics', 'Arts, History, Literature, Philosophy', '#8B5CF6', '📚', 4, 1]
+      );
+
+      const catBusiness = await db.run(
+        `INSERT INTO topic_categories (user_id, name, description, color, icon, priority, is_system)
+         VALUES (NULL, ?, ?, ?, ?, ?, ?)`,
+        ['Business', 'Economics, Finance, Management', '#F59E0B', '💼', 3, 1]
+      );
+
+      // Sub-categories under STEM
+      await db.run(
+        `INSERT INTO topic_categories (user_id, name, description, color, icon, parent_id, priority, is_system)
+         VALUES (NULL, ?, ?, ?, ?, ?, ?, ?)`,
+        ['DSA', 'Algebra, Calculus, Statistics', '#3B82F6', '📐', catStem.lastID, 5, 1]
+      );
+
+      await db.run(
+        `INSERT INTO topic_categories (user_id, name, description, color, icon, parent_id, priority, is_system)
+         VALUES (NULL, ?, ?, ?, ?, ?, ?, ?)`,
+        ['CA', 'Programming, Algorithms, Data Structures', '#6366F1', '💻', catStem.lastID, 5, 1]
+      );
+
+      await db.run(
+        `INSERT INTO topic_categories (user_id, name, description, color, icon, parent_id, priority, is_system)
+         VALUES (NULL, ?, ?, ?, ?, ?, ?, ?)`,
+        ['OS', 'Mechanics, Electromagnetism, Quantum', '#14B8A6', '⚛️', catStem.lastID, 4, 1]
+      );
+
+      // Sub-categories under Humanities
+      await db.run(
+        `INSERT INTO topic_categories (user_id, name, description, color, icon, parent_id, priority, is_system)
+         VALUES (NULL, ?, ?, ?, ?, ?, ?, ?)`,
+        ['PSQT', 'World History, Modern History', '#A855F7', '🏛️', catHumanities.lastID, 4, 1]
+      );
+
+      await db.run(
+        `INSERT INTO topic_categories (user_id, name, description, color, icon, parent_id, priority, is_system)
+         VALUES (NULL, ?, ?, ?, ?, ?, ?, ?)`,
+        ['Algebra', 'Classic & Modern Literature', '#EC4899', '✍️', catHumanities.lastID, 3, 1]
+      );
       
       // Insert sample syllabus items
       await db.run(

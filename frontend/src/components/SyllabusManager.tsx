@@ -2,6 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 
+interface TopicCategory {
+  id: number;
+  name: string;
+  description?: string;
+  color: string;
+  icon?: string;
+  parent_id?: number | null;
+  priority: number;
+  is_system: boolean;
+  children?: TopicCategory[];
+}
+
 interface SyllabusItem {
   id: number;
   subject: string;
@@ -11,10 +23,16 @@ interface SyllabusItem {
   estimated_study_hours?: number;
   completed: boolean;
   completion_percentage: number;
+  priority?: string;
   start_date?: string;
   target_completion_date?: string;
   actual_completion_date?: string;
   difficulty_level?: number;
+  category_id?: number | null;
+  category_name?: string | null;
+  category_color?: string | null;
+  category_priority?: number | null;
+  category_icon?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -25,15 +43,20 @@ interface NewSyllabusForm {
   description: string;
   chapterNumber: number;
   estimatedStudyHours: number;
+  priority: string;
   startDate: string;
   targetCompletionDate: string;
   difficultyLevel: number;
+  categoryId?: number | null;
 }
 
 export const SyllabusManager: React.FC = () => {
   const { user } = useAuth();
   const [syllabusItems, setSyllabusItems] = useState<SyllabusItem[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
+  const [categories, setCategories] = useState<TopicCategory[]>([]);
+  const [categoryTree, setCategoryTree] = useState<TopicCategory[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState<'list' | 'subjects' | 'stats'>('list');
@@ -46,14 +69,28 @@ export const SyllabusManager: React.FC = () => {
     description: '',
     chapterNumber: 1,
     estimatedStudyHours: 2,
+    priority: 'medium',
     startDate: '',
     targetCompletionDate: '',
-    difficultyLevel: 3
+    difficultyLevel: 3,
+    categoryId: null
   });
 
   useEffect(() => {
     fetchSyllabusData();
+    fetchCategories();
   }, []);
+
+  const fetchCategories = async () => {
+    try {
+      const response = await api.get('/topic-categories');
+      setCategories(response.data.categories || []);
+      setCategoryTree(response.data.tree || []);
+      console.log(response.data.tree);
+    } catch (error: any) {
+      console.error('Fetch categories error:', error);
+    }
+  };
 
   const fetchSyllabusData = async () => {
     try {
@@ -69,7 +106,7 @@ export const SyllabusManager: React.FC = () => {
       
       // Ensure we're setting arrays
       const syllabusData = syllabusResponse.data?.syllabus;
-      const subjectsData = subjectsResponse.data?.subjects;
+      const subjectsData = subjectsResponse.data?.subjects.rows;
       
       console.log('Processed syllabusData:', syllabusData);
       console.log('Processed subjectsData:', subjectsData);
@@ -101,9 +138,11 @@ export const SyllabusManager: React.FC = () => {
         description: '',
         chapterNumber: 1,
         estimatedStudyHours: 2,
+        priority: 'medium',
         startDate: '',
         targetCompletionDate: '',
-        difficultyLevel: 3
+        difficultyLevel: 3,
+        categoryId: null
       });
       fetchSyllabusData(); // Refresh to update subjects
     } catch (error: any) {
@@ -154,6 +193,22 @@ export const SyllabusManager: React.FC = () => {
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
+  }
+
+  function catfilter(syllabusItems: SyllabusItem[]) {
+    let idx = 0;
+    let children: number[] = [];
+    for (let i = 0; i < categoryTree.length; i++) {
+      if (categoryTree[i].id == selectedCategory) {
+        let ch = categoryTree[i].children;
+        if (ch == undefined) ch = [];
+        idx = i;
+        for (let j = 0; j < (categoryTree[i].children?.length || 0); j++) {
+          children[j] = ch[j]?.id;
+        }
+      }
+    }
+    return syllabusItems.filter(item => !selectedCategory || item.category_id === selectedCategory || children?.includes(item.category_id === undefined || item.category_id === null ? -1 : item.category_id));
   }
 
   return (
@@ -210,6 +265,55 @@ export const SyllabusManager: React.FC = () => {
             </button>
           </nav>
         </div>
+
+        {/* Category Filter Sidebar */}
+        {categories.length > 0 && (
+          <div className="mb-6 bg-white p-4 rounded-lg shadow">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Filter by Category</h3>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setSelectedCategory(null)}
+                className={`px-3 py-1 text-sm rounded-full transition-colors ${
+                  selectedCategory === null
+                    ? 'bg-gray-800 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                All Categories
+              </button>
+              {categories
+                .filter(cat => !cat.parent_id)
+                .sort((a, b) => b.priority - a.priority)
+                .map(cat => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className={`px-3 py-1 text-sm rounded-full text-white transition-all ${
+                      selectedCategory === cat.id ? 'ring-2 ring-offset-2 ring-gray-900' : ''
+                    }`}
+                    style={{ backgroundColor: cat.color }}
+                  >
+                    {cat.icon} {cat.name}
+                  </button>
+                ))}
+            </div>
+            {selectedCategory && categories.find(c => c.id === selectedCategory)?.children && categories.find(c => c.id === selectedCategory)!.children!.length > 0 && (
+              <div className="mt-2 pl-4 flex flex-wrap gap-2">
+                <span className="text-xs text-gray-500">Sub-categories:</span>
+                {categories.find(c => c.id === selectedCategory)!.children!.map(subCat => (
+                  <button
+                    key={subCat.id}
+                    onClick={() => setSelectedCategory(subCat.id)}
+                    className="px-2 py-1 text-xs rounded-full text-white"
+                    style={{ backgroundColor: subCat.color }}
+                  >
+                    {subCat.icon} {subCat.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Add Syllabus Form Modal */}
         {showAddForm && (
@@ -305,6 +409,36 @@ export const SyllabusManager: React.FC = () => {
                     <option value={5}>5 - Very Hard</option>
                   </select>
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Priority</label>
+                  <select
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    value={newSyllabus.priority}
+                    onChange={(e) => setNewSyllabus({...newSyllabus, priority: e.target.value})}
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="urgent">Urgent</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Category</label>
+                  <select
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    value={newSyllabus.categoryId || ''}
+                    onChange={(e) => setNewSyllabus({...newSyllabus, categoryId: e.target.value ? parseInt(e.target.value) : null})}
+                  >
+                    <option value="">No Category</option>
+                    {categories.map(cat => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.icon} {cat.name} {cat.parent_id ? '(Sub-category)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="flex justify-end space-x-3 mt-6">
@@ -325,24 +459,48 @@ export const SyllabusManager: React.FC = () => {
           </div>
         )}
 
-        {/* List Tab */}
         {activeTab === 'list' && (
           <div className="bg-white shadow overflow-hidden sm:rounded-md">
             <ul className="divide-y divide-gray-200">
-              {!Array.isArray(syllabusItems) || syllabusItems.length === 0 ? (
+              {
+              !Array.isArray(syllabusItems) || syllabusItems.length === 0 ? (
                 <li className="px-6 py-8 text-center text-gray-500">
                   No syllabus items yet. Click "Add Syllabus Item" to create your first item.
                 </li>
               ) : (
-                syllabusItems.map((item) => (
+                catfilter(syllabusItems)
+                  .filter(item => true)
+                  .map((item) => (
                   item && item.id ? (
                   <li key={item.id} className="px-6 py-4">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
-                          <h3 className="text-lg font-medium text-gray-900">
-                            {item.subject || 'Unknown Subject'} - {item.topic || 'Unknown Topic'}
-                          </h3>
+                          <div className="flex items-center space-x-2">
+                            <h3 className="text-lg font-medium text-gray-900">
+                              {item.subject || 'Unknown Subject'} - {item.topic || 'Unknown Topic'}
+                            </h3>
+                            {item.priority && (
+                              <span 
+                                className={`px-2 py-1 text-xs font-semibold rounded-full text-white ${
+                                  item.priority === 'urgent' ? 'bg-red-500' :
+                                  item.priority === 'high' ? 'bg-orange-500' :
+                                  item.priority === 'medium' ? 'bg-yellow-500' :
+                                  'bg-green-500'
+                                }`}
+                              >
+                                {item.priority.toUpperCase()}
+                              </span>
+                            )}
+                            {item.category_name && (
+                              <span 
+                                className="px-3 py-1 text-xs font-semibold rounded-full text-white"
+                                style={{ backgroundColor: item.category_color || '#3B82F6' }}
+                              >
+                                {item.category_icon} {item.category_name}
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center space-x-2">
                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                               item.completed 

@@ -24,26 +24,29 @@ router.get('/', [
     const { subject, completed, page = 1, limit = 20 } = req.query;
     const offset = (page - 1) * limit;
 
-    let whereConditions = ['user_id = ?'];
+    let whereConditions = ['s.user_id = ?'];
     let values = [req.user.id];
     let paramIndex = 2;
 
     if (subject) {
-      whereConditions.push(`subject LIKE ?`);
+      whereConditions.push(`s.subject LIKE ?`);
       values.push(`%${subject}%`);
     }
     if (completed !== undefined) {
-      whereConditions.push(`completed = ?`);
+      whereConditions.push(`s.completed = ?`);
       values.push(completed === 'true' ? 1 : 0);
     }
 
     const query = `
-      SELECT id, subject, topic, description, chapter_number, estimated_study_hours,
-             completed, completion_percentage, start_date, target_completion_date,
-             actual_completion_date, difficulty_level, created_at, updated_at
-      FROM syllabus 
+      SELECT s.id, s.subject, s.topic, s.description, s.chapter_number, s.estimated_study_hours,
+             s.completed, s.completion_percentage, s.start_date, s.target_completion_date,
+             s.actual_completion_date, s.difficulty_level, s.priority, s.created_at, s.updated_at, s.category_id,
+             tc.name as category_name, tc.color as category_color, tc.priority as category_priority,
+             tc.icon as category_icon
+      FROM syllabus s
+      LEFT JOIN topic_categories tc ON s.category_id = tc.id
       WHERE ${whereConditions.join(' AND ')}
-      ORDER BY subject ASC, chapter_number ASC, created_at DESC
+      ORDER BY s.subject ASC, s.chapter_number ASC, s.created_at DESC
       LIMIT ? OFFSET ?
     `;
 
@@ -55,7 +58,7 @@ router.get('/', [
     // Get total count for pagination
     const countQuery = `
       SELECT COUNT(*) as total 
-      FROM syllabus 
+      FROM syllabus s
       WHERE ${whereConditions.join(' AND ')}
     `;
     const countResult = await db.query(countQuery, values.slice(0, -2));
@@ -105,6 +108,7 @@ router.get('/by-subject', async (req, res) => {
     );
 
     res.json({ subjects: result });
+    console.log('Get syllabus by subject result:', result);
   } catch (error) {
     console.error('Get syllabus by subject error:', error);
     res.status(500).json({ message: 'Internal server error' });
@@ -141,7 +145,9 @@ router.post('/', [
   body('estimatedStudyHours').optional().isFloat({ min: 0 }),
   body('startDate').optional().isISO8601(),
   body('targetCompletionDate').optional().isISO8601(),
-  body('difficultyLevel').optional().isInt({ min: 1, max: 5 })
+  body('difficultyLevel').optional().isInt({ min: 1, max: 5 }),
+  body('priority').optional().isIn(['low', 'medium', 'high', 'urgent']),
+  body('categoryId').optional().isInt()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -157,16 +163,18 @@ router.post('/', [
       estimatedStudyHours, 
       startDate, 
       targetCompletionDate, 
-      difficultyLevel 
+      difficultyLevel,
+      priority = 'medium',
+      categoryId
     } = req.body;
 
     const result = await db.query(
       `INSERT INTO syllabus 
        (user_id, subject, topic, description, chapter_number, estimated_study_hours, 
-        start_date, target_completion_date, difficulty_level)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        start_date, target_completion_date, difficulty_level, priority, category_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [req.user.id, subject, topic, description, chapterNumber, estimatedStudyHours, 
-       startDate, targetCompletionDate, difficultyLevel]
+       startDate, targetCompletionDate, difficultyLevel, priority, categoryId || null]
     );
 
     // Get the created record
@@ -197,7 +205,9 @@ router.put('/:id', [
   body('startDate').optional().isISO8601(),
   body('targetCompletionDate').optional().isISO8601(),
   body('actualCompletionDate').optional().isISO8601(),
-  body('difficultyLevel').optional().isInt({ min: 1, max: 5 })
+  body('difficultyLevel').optional().isInt({ min: 1, max: 5 }),
+  body('priority').optional().isIn(['low', 'medium', 'high', 'urgent']),
+  body('categoryId').optional().isInt()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -213,7 +223,7 @@ router.put('/:id', [
     const allowedFields = [
       'subject', 'topic', 'description', 'chapterNumber', 'estimatedStudyHours',
       'completed', 'completionPercentage', 'startDate', 'targetCompletionDate',
-      'actualCompletionDate', 'difficultyLevel'
+      'actualCompletionDate', 'difficultyLevel', 'priority', 'categoryId'
     ];
 
     const fieldMappings = {
@@ -223,7 +233,8 @@ router.put('/:id', [
       startDate: 'start_date',
       targetCompletionDate: 'target_completion_date',
       actualCompletionDate: 'actual_completion_date',
-      difficultyLevel: 'difficulty_level'
+      difficultyLevel: 'difficulty_level',
+      categoryId: 'category_id'
     };
 
     for (const field of allowedFields) {

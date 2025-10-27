@@ -52,10 +52,28 @@ CREATE TABLE IF NOT EXISTS tasks (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- Topic categories table (for multi-level categorization with colors)
+CREATE TABLE IF NOT EXISTS topic_categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    color VARCHAR(20) DEFAULT '#3B82F6',
+    icon VARCHAR(50),
+    parent_id INTEGER,
+    priority INTEGER DEFAULT 0 CHECK (priority >= 0 AND priority <= 5),
+    is_system BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (parent_id) REFERENCES topic_categories(id) ON DELETE CASCADE
+);
+
 -- Syllabus table
 CREATE TABLE IF NOT EXISTS syllabus (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
+    category_id INTEGER,
     subject VARCHAR(100) NOT NULL,
     topic VARCHAR(255) NOT NULL,
     description TEXT,
@@ -63,13 +81,15 @@ CREATE TABLE IF NOT EXISTS syllabus (
     estimated_study_hours DECIMAL(5,2),
     completed BOOLEAN DEFAULT FALSE,
     completion_percentage INTEGER DEFAULT 0 CHECK (completion_percentage >= 0 AND completion_percentage <= 100),
+    priority VARCHAR(20) DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
     start_date DATE,
     target_completion_date DATE,
     actual_completion_date DATE,
     difficulty_level INTEGER CHECK (difficulty_level >= 1 AND difficulty_level <= 5),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (category_id) REFERENCES topic_categories(id) ON DELETE SET NULL
 );
 
 -- Courses table
@@ -236,3 +256,60 @@ CREATE INDEX IF NOT EXISTS idx_performance_analytics_user_date ON performance_an
 CREATE INDEX IF NOT EXISTS idx_web_tracking_user_date ON web_tracking(user_id, session_date);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read);
+
+-- Tests (MCQ) tables
+CREATE TABLE IF NOT EXISTS tests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    duration_minutes INTEGER DEFAULT 30,
+    task_id INTEGER,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Enforce one test per task (optional)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tests_task_id_unique ON tests(task_id);
+
+CREATE TABLE IF NOT EXISTS questions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    test_id INTEGER NOT NULL,
+    prompt TEXT NOT NULL,
+    points INTEGER DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (test_id) REFERENCES tests(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS choices (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    question_id INTEGER NOT NULL,
+    text TEXT NOT NULL,
+    is_correct BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS user_answers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    test_id INTEGER NOT NULL,
+    question_id INTEGER NOT NULL,
+    choice_id INTEGER NOT NULL,
+    answered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (test_id) REFERENCES tests(id) ON DELETE CASCADE,
+    FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE,
+    FOREIGN KEY (choice_id) REFERENCES choices(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_tests_user_id ON tests(user_id);
+CREATE INDEX IF NOT EXISTS idx_questions_test_id ON questions(test_id);
+CREATE INDEX IF NOT EXISTS idx_choices_question_id ON choices(question_id);
+CREATE INDEX IF NOT EXISTS idx_user_answers_user_test ON user_answers(user_id, test_id);
+CREATE INDEX IF NOT EXISTS idx_topic_categories_user_id ON topic_categories(user_id);
+CREATE INDEX IF NOT EXISTS idx_topic_categories_parent_id ON topic_categories(parent_id);
+CREATE INDEX IF NOT EXISTS idx_syllabus_category_id ON syllabus(category_id);

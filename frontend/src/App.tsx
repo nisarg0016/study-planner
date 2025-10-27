@@ -14,6 +14,7 @@ import { SyllabusManager } from './components/SyllabusManager';
 import { EventScheduler } from './components/EventScheduler';
 import { Notifications } from './components/Notifications';
 import PomodoroTimer from './components/PomodoroTimer';
+import TestTaker from './components/TestTaker';
 
 // Protected Route component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -165,6 +166,15 @@ const AppContent: React.FC = () => {
               <div className="container mx-auto px-4 py-8">
                 <PomodoroTimer />
               </div>
+            </ProtectedRoute>
+          } 
+        />
+
+        <Route 
+          path="/tests" 
+          element={
+            <ProtectedRoute>
+              <TestTaker />
             </ProtectedRoute>
           } 
         />

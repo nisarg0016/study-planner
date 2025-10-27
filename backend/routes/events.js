@@ -54,13 +54,14 @@ router.get('/', [
     values.push(limit, offset);
 
     const result = await db.query(query, values);
+    const events = result.rows || [];
 
     res.json({
-      events: result,
+      events,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
-        total: result.length
+        total: events.length
       }
     });
   } catch (error) {
@@ -83,11 +84,12 @@ router.get('/:id', async (req, res) => {
       [id, req.user.id]
     );
 
-    if (result.length === 0) {
+    const rows = result.rows || [];
+    if (rows.length === 0) {
       return res.status(404).json({ message: 'Event not found' });
     }
 
-    res.json({ event: result[0] });
+    res.json({ event: rows[0] });
   } catch (error) {
     console.error('Get event error:', error);
     res.status(500).json({ message: 'Internal server error' });
@@ -150,7 +152,7 @@ router.post('/', [
 
     res.status(201).json({
       message: 'Event created successfully',
-      event: createdRecord.rows[0]
+      event: (createdRecord.rows || [])[0]
     });
   } catch (error) {
     console.error('Create event error:', error);
@@ -238,7 +240,7 @@ router.put('/:id', [
 
     res.json({
       message: 'Event updated successfully',
-      event: updatedRecord.rows[0]
+      event: (updatedRecord.rows || [])[0]
     });
   } catch (error) {
     console.error('Update event error:', error);
@@ -288,7 +290,7 @@ router.get('/calendar/:year/:month', async (req, res) => {
       [req.user.id, startDate, endDate]
     );
 
-    res.json({ events: result });
+    res.json({ events: result.rows || [] });
   } catch (error) {
     console.error('Get calendar events error:', error);
     res.status(500).json({ message: 'Internal server error' });
